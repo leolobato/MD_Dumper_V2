@@ -1,6 +1,9 @@
 # MD_Dumper_V2
 STM32 USB Megadrive cartridge Reader/Writer
 
+Update : 05/2020 : this repository is not finished yet.
+it's a cleanup of https://github.com/X-death25/STM32_Projects/tree/master/Megadrive_USB2
+
 What is it ?
 -----
 
