@@ -1,0 +1,67 @@
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+Software/cmake-build-debug
+Software/CMakeCache.txt
+Software/cmake_install.cmake
+Software/install_manifest.txt
+Software/CMakeFiles/
+Software/CTestTestfile.cmake
+Software/Makefile
+Software/*.cbp
+Software/CMakeScripts
+Software/compile_commands.json
+
+include/divisible/*
+
+
+## Local 
+
+.idea/*.xml
+
+**/build/**/*
+
+**/include/*
+**/out/*
+**/lib/*
+**/bin/*
+**/test/test_runner
+
+
+# OS Specific
+
+## macos
+**/.DS_Store
+
+## linux
+**/.directory
