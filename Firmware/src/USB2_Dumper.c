@@ -13,6 +13,7 @@ X-death
 
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/gpio.h>
+#include <libopencm3/stm32/flash.h>
 #include <libopencm3/usb/usbd.h>
 
 // Define Dumper Pinout
@@ -31,7 +32,7 @@ X-death
 #define D10 		GPIO15 // PB15
 #define D11 		GPIO14 // PB14
 #define D12 		GPIO13 // PB13
-#define D13 		GPIO12 // PB12
+#define D13 		GPIO12 // dPB12
 #define D14 		GPIO11 // PB11
 #define D15			GPIO10 // PB10
 
@@ -62,6 +63,8 @@ X-death
 #define INFOS_ID 		0x18
 #define DEBUG_MODE 		0x19
 #define MAPPER_SSF2 	0x20
+#define UPDATE_READ	 	0x50
+#define UPDATE_WRITE 	0x51
 #define READ_REGISTER	0xFA
 #define WRITE_REGISTER	0xFB
 
@@ -857,6 +860,56 @@ void SetSCL( unsigned char value)
 	writeWord_MD(0x100000,value);
 }
 
+// STM32 Update Specifc Function //
+
+void STM32_Read_Flash() // Read 64 byte at specified address and send it to USB_buffer_out
+{
+	volatile uint32_t *pb; // STM32 Flash must be read in 32 bit mode
+	unsigned char i=0;
+	for(i=0; i<64; i=i+4)
+	{
+		pb = (volatile uint32_t *) address;
+		usb_buffer_OUT[i]=*pb  & 0xFF;
+		usb_buffer_OUT[i+1]=(*pb  & 0xFF00)>>8;
+		usb_buffer_OUT[i+2]=(*pb  & 0xFF0000)>>16;
+		usb_buffer_OUT[i+3]=(*pb  & 0xFF000000)>>24;
+		address=address+4;
+	}
+}
+
+void STM32_Unlock_Flash() // Unlock STM32 Flash Access
+{
+		flash_unlock();  // Unlock Write protection flag
+		usb_buffer_OUT[2]=0xAA;
+}
+
+void STM32_Lock_Flash() // Unlock STM32 Flash Access
+{
+		flash_lock();  // Lock Write protection flag
+		usb_buffer_OUT[2]=0xBB;
+}
+
+void STM32_Erase_Flash( unsigned char page_address) // Unlock STM32 Flash Access
+{	
+		uint32_t flash_status = 0;	
+		flash_erase_page(2000); // Erase correct page address
+		while ( flash_status != FLASH_SR_EOP){flash_status = flash_get_status_flags();} // Wait until operation is completed
+}
+
+/*
+void STM32_Write_Flash() // Read 64 byte at specified address and send it to USB_buffer_out
+{
+	// STM32 page size is 1024 bytes
+
+	flash_unlock();  // Unlock Write protection flag
+	flash_erase_page(page_address); // Erase correct page address
+	while ( flash_status != FLASH_SR_EOP){flash_status = flash_get_status_flags();}
+	
+
+}
+*/
+
+
 /// USB Specific Function
 
 
@@ -1055,6 +1108,21 @@ static void usbdev_data_rx_cb(usbd_device *usbd_dev, uint8_t ep)
 		usbd_ep_write_packet(usbd_dev, 0x82,usb_buffer_OUT,64);
    }
 
+	 if (usb_buffer_IN[0] == UPDATE_READ)   // Update Read Mode
+    {
+		gpio_clear(GPIOC, GPIO13);
+		STM32_Read_Flash();
+		usbd_ep_write_packet(usbd_dev, 0x82,usb_buffer_OUT,64);
+	}
+
+	if (usb_buffer_IN[0] == UPDATE_WRITE)   // Update Write Mode
+    {
+		if (usb_buffer_IN[1] == 0xCC ) {STM32_Unlock_Flash();}
+		if (usb_buffer_IN[1] == 0xDD ) {STM32_Lock_Flash();}
+		if (usb_buffer_IN[2] != 0x00 ) {STM32_Erase_Flash(usb_buffer_IN[2]);}
+		usbd_ep_write_packet(usbd_dev, 0x82,usb_buffer_OUT,64);
+	}
+
 }
 
 /*
@@ -1140,10 +1208,10 @@ for( i = 0; i < 0x800000; i++){ __asm__("nop"); } //1sec
     gpio_set_mode(GPIOC, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_PUSHPULL, WE_SRAM);
     gpio_set_mode(GPIOA, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_PUSHPULL, CLK_CLEAR);
 	gpio_set_mode(GPIOA, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_PUSHPULL, TIME);
-    gpio_set_mode(GPIOA, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_PUSHPULL, MARK3);
+  //  gpio_set_mode(GPIOA, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_PUSHPULL, MARK3);
 	GPIOA_BSRR |= CLK_CLEAR;
 	GPIOA_BSRR |= TIME;
-    GPIOA_BSRR |= MARK3;
+   // GPIOA_BSRR |= MARK3;
 	GPIOC_BSRR |= WE_SRAM | (LED_PIN<<16); //inhib
 	gpio_set(GPIOC, GPIO13); // Turn Led OFF
 
