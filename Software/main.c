@@ -1,10 +1,16 @@
 /*
 Sega Dumper Software
-V2 05/2020
+
+------------------------------------------------------
+V2.1 06/2020
+*Add USB Update System
+------------------------------------------------------
+V2.0 05/2020
 *Add SSF2 mapper Support
 *Add Serial EEPROM Game Detection "not finished yet"
 *Add Extra Hardware Game Detection "not finished yet"
-X-death 
+------------------------------------------------------
+X-death
 */
 
 #include <stdio.h>
@@ -35,7 +41,9 @@ X-death
 #define INFOS_ID 0x18
 #define DEBUG_MODE 0x19
 #define MAPPER_SSF2 0x20
-
+#define UPDATE_READ  0x50
+#define UPDATE_WRITE 0x51
+#define UPDATE_WRITE 	0x51
 // Sega Dumper Specific Variable
 
 char * game_rom = NULL;
@@ -179,7 +187,7 @@ int main()
     int checksum_header = 0;
     unsigned char manufacturer_id=0;
     unsigned char chip_id=0;
-	unsigned char sms_bank=0;
+    unsigned char sms_bank=0;
 
     // File manipulation Specific Var
 
@@ -216,7 +224,7 @@ int main()
 // 4 = EA                [24C01]
 // 5 = Codemasters       [24C08/24C16/24C65]
 //***********************************************
-unsigned char eepType;
+    unsigned char eepType;
 
 //*********************************************************
 // SERIAL EEPROM LOOKUP TABLE
@@ -224,56 +232,57 @@ unsigned char eepType;
 // chksum is located in ROM at 0x18E (0xC7)
 // eepType and eepSize are combined to conserve memory
 //*********************************************************
-static const unsigned short eepid [] = {
-  // ACCLAIM TYPE 1
-  0x5B9F, 0x101,  // NBA Jam (J)
-  0x694F, 0x101,  // NBA Jam (UE) (Rev 0)
-  0xBFA9, 0x101,  // NBA Jam (UE) (Rev 1)
-  // ACCLAIM TYPE 2
-  0x16B2, 0x102,  // Blockbuster World Videogame Championship II (U)   [NO HEADER SAVE DATA]
-  0xCC3F, 0x102,  // NBA Jam Tournament Edition (W) (Rev 0)            [NO HEADER SAVE DATA]
-  0x8AE1, 0x102,  // NBA Jam Tournament Edition (W) (Rev 1)            [NO HEADER SAVE DATA]
-  0xDB97, 0x102,  // NBA Jam Tournament Edition 32X (W)
-  0x7651, 0x102,  // NFL Quarterback Club (W)
-  0xDFE4, 0x102,  // NFL Quarterback Club 32X (W)
-  0x3DE6, 0x802,  // NFL Quarterback Club '96 (UE)
-  0xCB78, 0x2002, // Frank Thomas Big Hurt Baseball (UE)
-  0x6DD9, 0x2002, // College Slam (U)
-  // CAPCOM
-  0xAD23, 0x83,   // Mega Man:  The Wily Wars (E)
-  0xEA80, 0x83,   // Rockman Megaworld (J)
-  // SEGA
-  0x760F, 0x83,   // Evander "Real Deal" Holyfield Boxing (JU)
-  0x95E7, 0x83,   // Greatest Heavyweights of the Ring (E)
-  0x7270, 0x83,   // Greatest Heavyweights of the Ring (U)
-  0xBACC, 0x83,   // Honoo no Toukyuuji Dodge Danpei (J)
-  0xB939, 0x83,   // MLBPA Sports Talk Baseball (U)                    [BAD HEADER SAVE DATA]
-  0x487C, 0x83,   // Ninja Burai Densetsu (J)
-  0x740D, 0x83,   // Wonder Boy in Monster World (B)
-  0x0278, 0x83,   // Wonder Boy in Monster World (J)
-  0x9D79, 0x83,   // Wonder Boy in Monster World (UE)
-  // EA
-  0x8512, 0x84,   // Bill Walsh College Football (UE)                  [BAD HEADER SAVE DATA]
-  0xA107, 0x84,   // John Madden Football '93 (UE)                     [NO HEADER SAVE DATA]
-  0x5807, 0x84,   // John Madden Football '93 Championship Edition (U) [NO HEADER SAVE DATA]
-  0x2799, 0x84,   // NHLPA Hockey '93 (UE) (Rev 0)                     [NO HEADER SAVE DATA]
-  0xFA57, 0x84,   // NHLPA Hockey '93 (UE) (Rev 1)                     [NO HEADER SAVE DATA]
-  0x8B9F, 0x84,   // Rings of Power (UE)                               [NO HEADER SAVE DATA]
-  // CODEMASTERS
-  0x7E65, 0x405,  // Brian Lara Cricket (E)                            [NO HEADER SAVE DATA]
-  0x9A5C, 0x2005, // Brian Lara Cricket 96 (E) (Rev 1.0)               [NO HEADER SAVE DATA]
-  0xC4EE, 0x2005, // Brian Lara Cricket 96 (E) (Rev 1.1)               [NO HEADER SAVE DATA]
-  0x7E50, 0x805,  // Micro Machines 2 (E) (J-Cart)                     [NO HEADER SAVE DATA]
-  0x165E, 0x805,  // Micro Machines '96 (E) (J-Cart) (Rev 1.0/1.1)     [NO HEADER SAVE DATA]
-  0x168B, 0x405,  // Micro Machines Military (E) (J-Cart)              [NO HEADER SAVE DATA]
-  0x12C1, 0x2005, // Shane Warne Cricket (E)                           [NO HEADER SAVE DATA]
-};
-unsigned short eepdata=0;
-unsigned char eeptype;
-unsigned char eepsize;
+    static const unsigned short eepid [] =
+    {
+        // ACCLAIM TYPE 1
+        0x5B9F, 0x101,  // NBA Jam (J)
+        0x694F, 0x101,  // NBA Jam (UE) (Rev 0)
+        0xBFA9, 0x101,  // NBA Jam (UE) (Rev 1)
+        // ACCLAIM TYPE 2
+        0x16B2, 0x102,  // Blockbuster World Videogame Championship II (U)   [NO HEADER SAVE DATA]
+        0xCC3F, 0x102,  // NBA Jam Tournament Edition (W) (Rev 0)            [NO HEADER SAVE DATA]
+        0x8AE1, 0x102,  // NBA Jam Tournament Edition (W) (Rev 1)            [NO HEADER SAVE DATA]
+        0xDB97, 0x102,  // NBA Jam Tournament Edition 32X (W)
+        0x7651, 0x102,  // NFL Quarterback Club (W)
+        0xDFE4, 0x102,  // NFL Quarterback Club 32X (W)
+        0x3DE6, 0x802,  // NFL Quarterback Club '96 (UE)
+        0xCB78, 0x2002, // Frank Thomas Big Hurt Baseball (UE)
+        0x6DD9, 0x2002, // College Slam (U)
+        // CAPCOM
+        0xAD23, 0x83,   // Mega Man:  The Wily Wars (E)
+        0xEA80, 0x83,   // Rockman Megaworld (J)
+        // SEGA
+        0x760F, 0x83,   // Evander "Real Deal" Holyfield Boxing (JU)
+        0x95E7, 0x83,   // Greatest Heavyweights of the Ring (E)
+        0x7270, 0x83,   // Greatest Heavyweights of the Ring (U)
+        0xBACC, 0x83,   // Honoo no Toukyuuji Dodge Danpei (J)
+        0xB939, 0x83,   // MLBPA Sports Talk Baseball (U)                    [BAD HEADER SAVE DATA]
+        0x487C, 0x83,   // Ninja Burai Densetsu (J)
+        0x740D, 0x83,   // Wonder Boy in Monster World (B)
+        0x0278, 0x83,   // Wonder Boy in Monster World (J)
+        0x9D79, 0x83,   // Wonder Boy in Monster World (UE)
+        // EA
+        0x8512, 0x84,   // Bill Walsh College Football (UE)                  [BAD HEADER SAVE DATA]
+        0xA107, 0x84,   // John Madden Football '93 (UE)                     [NO HEADER SAVE DATA]
+        0x5807, 0x84,   // John Madden Football '93 Championship Edition (U) [NO HEADER SAVE DATA]
+        0x2799, 0x84,   // NHLPA Hockey '93 (UE) (Rev 0)                     [NO HEADER SAVE DATA]
+        0xFA57, 0x84,   // NHLPA Hockey '93 (UE) (Rev 1)                     [NO HEADER SAVE DATA]
+        0x8B9F, 0x84,   // Rings of Power (UE)                               [NO HEADER SAVE DATA]
+        // CODEMASTERS
+        0x7E65, 0x405,  // Brian Lara Cricket (E)                            [NO HEADER SAVE DATA]
+        0x9A5C, 0x2005, // Brian Lara Cricket 96 (E) (Rev 1.0)               [NO HEADER SAVE DATA]
+        0xC4EE, 0x2005, // Brian Lara Cricket 96 (E) (Rev 1.1)               [NO HEADER SAVE DATA]
+        0x7E50, 0x805,  // Micro Machines 2 (E) (J-Cart)                     [NO HEADER SAVE DATA]
+        0x165E, 0x805,  // Micro Machines '96 (E) (J-Cart) (Rev 1.0/1.1)     [NO HEADER SAVE DATA]
+        0x168B, 0x405,  // Micro Machines Military (E) (J-Cart)              [NO HEADER SAVE DATA]
+        0x12C1, 0x2005, // Shane Warne Cricket (E)                           [NO HEADER SAVE DATA]
+    };
+    unsigned short eepdata=0;
+    unsigned char eeptype;
+    unsigned char eepsize;
 
 // Extra Hardware Type
- 
+
 //*****************************************************
 // Hardware TYPES
 // 0 = No Mapper
@@ -282,25 +291,26 @@ unsigned char eepsize;
 // 3 = WaterMelon T-5740 Mapper Pier Solar
 //*****************************************************
 
-unsigned char HardwareType;
+    unsigned char HardwareType;
 
 // Extra Hardware Lookup Table
 // Format = {chksum, HardwareType | CartrdigeSize}
 // chksum is located in ROM at 0x18E (0xC7)
 // Type and Size are combined to conserve memory
 
-static const unsigned short HardwareID [] = {
+    static const unsigned short HardwareID [] =
+    {
 
-0x345D, 0x0102,  // Virtua Racing EUR
-0x95AB, 0x0102,  // Virtua Racing USA
-0x3B99, 0x0102,  // Virtua Racing JAP
-0xE41D, 0x0205,  // Super Street Fighter 2 EUR
-0xE017, 0x0205,  // Super Street Fighter 2 USA
-0xCE25, 0x0205,  // Super Street Fighter 2 JAP
-};
-unsigned short Hardwaredata=0;
-unsigned char Hardwaretype;
-unsigned long Hardwaresize;
+        0x345D, 0x0102,  // Virtua Racing EUR
+        0x95AB, 0x0102,  // Virtua Racing USA
+        0x3B99, 0x0102,  // Virtua Racing JAP
+        0xE41D, 0x0205,  // Super Street Fighter 2 EUR
+        0xE017, 0x0205,  // Super Street Fighter 2 USA
+        0xCE25, 0x0205,  // Super Street Fighter 2 JAP
+    };
+    unsigned short Hardwaredata=0;
+    unsigned char Hardwaretype;
+    unsigned long Hardwaresize;
 
     // Main Program
 
@@ -372,10 +382,10 @@ unsigned long Hardwaresize;
 
     libusb_bulk_transfer(handle, 0x82, usb_buffer_in, sizeof(usb_buffer_in), &numBytes, 0);
 
-		
+
 // Now try to detect cartridge type ( SMS or MD )
 
-	// First try to read ROM MD Header
+    // First try to read ROM MD Header
 
     buffer_header = (unsigned char *)malloc(0x200);
     i = 0;
@@ -408,7 +418,7 @@ unsigned long Hardwaresize;
 
     if(memcmp((unsigned char *)buffer_header,"SEGA",4) == 0)
     {
-		printf("\nMegadrive/Genesis/32X cartridge detected!\n");
+        printf("\nMegadrive/Genesis/32X cartridge detected!\n");
 
         for(i=0; i<(256/16); i++)
         {
@@ -459,142 +469,212 @@ unsigned long Hardwaresize;
         game_size = 1 + ((buffer_header[0xA4]<<24) | (buffer_header[0xA5]<<16) | (buffer_header[0xA6]<<8) | buffer_header[0xA7])/1024;
         printf(" Game size: %dKB\n", game_size);
 
-		// EEPROM detection Specific code
+        // EEPROM detection Specific code
 
-		// Search checksum cartridge in EEPROM game table
+        // Search checksum cartridge in EEPROM game table
 
-		for (i = 0; i < sizeof(eepid)/sizeof(short); i++)
-    {
-        if ( checksum_header == eepid[i] ) 
-			{
-				printf(" Extra Memory : Yes ");
-				eepdata=eepid[i+1];
-				//printf(" EEPROM data : %X\n",eepdata);
-				eepsize = eepdata & 0x0F;
-				eeptype = eepdata >> 8;
-				if ( eepdata == 0x0101){ printf(" EEPROM type 1 : ACCLAIM 24C01 \n");;save_size=128;}
-				if ( eepdata == 0x0102){ printf(" EEPROM type 2 : ACCLAIM 24C02 \n");save_size=256;}
-				if ( eepdata == 0x0802){ printf(" EEPROM type 2 : ACCLAIM 24C16 \n");save_size=2048;}
-				if ( eepdata == 0x2002){ printf(" EEPROM type 2 : ACCLAIM 24C64 \n");save_size=8192;}
-				if ( eepdata == 0x83)  { printf(" EEPROM type 3 : CAPCOM/SEGA 24C01 \n");save_size=128;}
-				if ( eepdata == 0x84)  { printf(" EEPROM type 4 : ELECTRONIC ARTS 24C01 \n");save_size=128;}
-				if ( eepdata == 0x405)  { printf(" EEPROM type 5 : CODEMASTERS 24C08 \n");save_size=1024;}
-				if ( eepdata == 0x805)  { printf(" EEPROM type 5 : CODEMASTERS 24C16 \n");save_size=2048;}
-				if ( eepdata == 0x2005)  { printf(" EEPROM type 5 : CODEMASTERS 24C64 \n");save_size=8192;}
-				//printf(" EEPROM type : %d\n",eeptype);
-				//printf(" EEPROM size : %d\n",eepsize);
-				printf(" Save size : %d bytes \n",save_size);
-			}
-    }
-		
-
-      if ( eepdata ==0 ){
-        if((buffer_header[0xB0] + buffer_header[0xB1])!=0x93)
+        for (i = 0; i < sizeof(eepid)/sizeof(short); i++)
         {
-            printf(" Extra Memory : No\n");
+            if ( checksum_header == eepid[i] )
+            {
+                printf(" Extra Memory : Yes ");
+                eepdata=eepid[i+1];
+                //printf(" EEPROM data : %X\n",eepdata);
+                eepsize = eepdata & 0x0F;
+                eeptype = eepdata >> 8;
+                if ( eepdata == 0x0101)
+                {
+                    printf(" EEPROM type 1 : ACCLAIM 24C01 \n");;
+                    save_size=128;
+                }
+                if ( eepdata == 0x0102)
+                {
+                    printf(" EEPROM type 2 : ACCLAIM 24C02 \n");
+                    save_size=256;
+                }
+                if ( eepdata == 0x0802)
+                {
+                    printf(" EEPROM type 2 : ACCLAIM 24C16 \n");
+                    save_size=2048;
+                }
+                if ( eepdata == 0x2002)
+                {
+                    printf(" EEPROM type 2 : ACCLAIM 24C64 \n");
+                    save_size=8192;
+                }
+                if ( eepdata == 0x83)
+                {
+                    printf(" EEPROM type 3 : CAPCOM/SEGA 24C01 \n");
+                    save_size=128;
+                }
+                if ( eepdata == 0x84)
+                {
+                    printf(" EEPROM type 4 : ELECTRONIC ARTS 24C01 \n");
+                    save_size=128;
+                }
+                if ( eepdata == 0x405)
+                {
+                    printf(" EEPROM type 5 : CODEMASTERS 24C08 \n");
+                    save_size=1024;
+                }
+                if ( eepdata == 0x805)
+                {
+                    printf(" EEPROM type 5 : CODEMASTERS 24C16 \n");
+                    save_size=2048;
+                }
+                if ( eepdata == 0x2005)
+                {
+                    printf(" EEPROM type 5 : CODEMASTERS 24C64 \n");
+                    save_size=8192;
+                }
+                //printf(" EEPROM type : %d\n",eeptype);
+                //printf(" EEPROM size : %d\n",eepsize);
+                printf(" Save size : %d bytes \n",save_size);
+            }
         }
-       	else 
+
+
+        if ( eepdata ==0 )
         {
-            printf(" Extra Memory : Yes ");
-
-            switch(buffer_header[0xB2])
+            if((buffer_header[0xB0] + buffer_header[0xB1])!=0x93)
             {
-            case 0xF0:
-                printf(" 8bit backup SRAM (even addressing)\n");
-                break;
-            case 0xF8:
-                printf(" 8bit backup SRAM (odd addressing)\n");
-                break;
-            case 0xB8:
-                printf(" 8bit volatile SRAM (odd addressing)\n");
-                break;
-            case 0xB0:
-                printf(" 8bit volatile SRAM (even addressing)\n");
-                break;
-            case 0xE0:
-                printf(" 16bit backup SRAM\n");
-                break;
-            case 0xA0:
-                printf(" 16bit volatile SRAM\n");
-                break;
+                printf(" Extra Memory : No\n");
             }
-            if ( buffer_header[0xB2] != 0xE0 | buffer_header[0xB2] != 0xA0 ) // 8 bit SRAM
+            else
             {
-                save_size2 = (buffer_header[0xB8]<<24) | (buffer_header[0xB9]<<16) | (buffer_header[0xBA] << 8) | buffer_header[0xBB];
-                save_size1 = (buffer_header[0xB4]<<24) | (buffer_header[0xB5]<<16) | (buffer_header[0xB6] << 8) | buffer_header[0xB7];
+                printf(" Extra Memory : Yes ");
 
-                save_size = save_size2 - save_size1;
-                save_size = (save_size/1024); // Kb format
-                save_size=(save_size/2) + 1; // 8bit size
+                switch(buffer_header[0xB2])
+                {
+                case 0xF0:
+                    printf(" 8bit backup SRAM (even addressing)\n");
+                    break;
+                case 0xF8:
+                    printf(" 8bit backup SRAM (odd addressing)\n");
+                    break;
+                case 0xB8:
+                    printf(" 8bit volatile SRAM (odd addressing)\n");
+                    break;
+                case 0xB0:
+                    printf(" 8bit volatile SRAM (even addressing)\n");
+                    break;
+                case 0xE0:
+                    printf(" 16bit backup SRAM\n");
+                    break;
+                case 0xA0:
+                    printf(" 16bit volatile SRAM\n");
+                    break;
+                }
+                if ( buffer_header[0xB2] != 0xE0 | buffer_header[0xB2] != 0xA0 ) // 8 bit SRAM
+                {
+                    save_size2 = (buffer_header[0xB8]<<24) | (buffer_header[0xB9]<<16) | (buffer_header[0xBA] << 8) | buffer_header[0xBB];
+                    save_size1 = (buffer_header[0xB4]<<24) | (buffer_header[0xB5]<<16) | (buffer_header[0xB6] << 8) | buffer_header[0xB7];
+
+                    save_size = save_size2 - save_size1;
+                    save_size = (save_size/1024); // Kb format
+                    save_size=(save_size/2) + 1; // 8bit size
+                }
+                save_address = (buffer_header[0xB4]<<24) | (buffer_header[0xB5]<<16) | (buffer_header[0xB6] << 8) | buffer_header[0xB7];
+                printf(" Save size: %dKb\n", save_size);
+                printf(" Save address: %lX\n", save_address);
             }
-            save_address = (buffer_header[0xB4]<<24) | (buffer_header[0xB5]<<16) | (buffer_header[0xB6] << 8) | buffer_header[0xB7];
-            printf(" Save size: %dKb\n", save_size);
-            printf(" Save address: %lX\n", save_address);
-		  }
-		}
+        }
 
-		// Extra Hardware detection Specific code
+        // Extra Hardware detection Specific code
 
-			// Search checksum cartridge in Custom Hardware game table
+        // Search checksum cartridge in Custom Hardware game table
 
-		for (i = 0; i < sizeof(HardwareID)/sizeof(short); i++)
-    	{
-          if ( checksum_header == HardwareID[i] ) 
-			{
-				Hardwaredata=HardwareID[i+1];
-				Hardwaretype = Hardwaredata >> 8;
-				Hardwaresize = Hardwaredata & 0x0F;
-				if ( Hardwaredata == 0x0205){ printf(" Extra Hardware : Sega 315-5779 Mapper Super Street Fighter 2 \n");game_size=1024*Hardwaresize*1024;}
-			}
-			// To Do Add Overdrive 2 detection support : https://plutiedev.com/beyond-4mb
-		}
-	}
+        for (i = 0; i < sizeof(HardwareID)/sizeof(short); i++)
+        {
+            if ( checksum_header == HardwareID[i] )
+            {
+                Hardwaredata=HardwareID[i+1];
+                Hardwaretype = Hardwaredata >> 8;
+                Hardwaresize = Hardwaredata & 0x0F;
+                if ( Hardwaredata == 0x0205)
+                {
+                    printf(" Extra Hardware : Sega 315-5779 Mapper Super Street Fighter 2 \n");
+                    game_size=1024*Hardwaresize*1024;
+                }
+            }
+            // To Do Add Overdrive 2 detection support : https://plutiedev.com/beyond-4mb
+        }
+    }
 
-		
 
-	else   // Try to read in SMS mode
-	{
-		
-		address = 0x7FF0;
-		usb_buffer_out[0] = READ_SMS;
-		usb_buffer_out[1] = address&0xFF ;
+
+    else   // Try to read in SMS mode
+    {
+
+        address = 0x7FF0;
+        usb_buffer_out[0] = READ_SMS;
+        usb_buffer_out[1] = address&0xFF ;
         usb_buffer_out[2] = (address&0xFF00)>>8;
         usb_buffer_out[3]=(address & 0xFF0000)>>16;
         usb_buffer_out[4] = 0; // Slow Mode
 
-        libusb_bulk_transfer(handle, 0x01,usb_buffer_out, sizeof(usb_buffer_out), &numBytes, 0); 
-    	libusb_bulk_transfer(handle, 0x82, usb_buffer_in, sizeof(usb_buffer_in), &numBytes, 0);
+        libusb_bulk_transfer(handle, 0x01,usb_buffer_out, sizeof(usb_buffer_out), &numBytes, 0);
+        libusb_bulk_transfer(handle, 0x82, usb_buffer_in, sizeof(usb_buffer_in), &numBytes, 0);
 
-		//printf("\nDisplaying USB IN buffer\n\n");
-       for (i = 0; i < 64; i++)
-     //   {
-        //    printf("%02X ",usb_buffer_in[i]);
-    	//	j++;
-    	//	if (j==16){printf("\n");j=0;}
-     //   }
+        //printf("\nDisplaying USB IN buffer\n\n");
+        for (i = 0; i < 64; i++)
+            //   {
+            //    printf("%02X ",usb_buffer_in[i]);
+            //	j++;
+            //	if (j==16){printf("\n");j=0;}
+            //   }
 
-		if(memcmp((unsigned char *)usb_buffer_in,"TMR SEGA",8) == 0)
-    		{
-				printf("\nMaster System/Mark3 cartridge detected !\n");
-				printf("Region : ");
-				if ( usb_buffer_in[15] >> 6 == 0x01 ){ printf("USA / EUR\n");}
-				if ( usb_buffer_in[15] >> 4 == 0x03 ){ printf("Japan\n");}
-				if ( usb_buffer_in[15] >> 4 == 0x03 ){ printf("Japan\n");}
-				game_size = usb_buffer_in[15] & 0xF;
-				//printf("Game Size : %ld Ko \n",game_size);
-				if (game_size == 0x00){ printf("Game Size : 256 Ko");game_size = 256*1024;}
-				if (game_size == 0x01){ printf("Game Size : 512 Ko");game_size = 512*1024;}
-				if (game_size == 0x0c){ printf("Game Size : 32 Ko");game_size = 32*1024;}
-				if (game_size == 0x0e){ printf("Game Size : 64 Ko");game_size = 64*1024;}
-				if (game_size == 0x0f){ printf("Game Size : 128 Ko");game_size = 128*1024;}
-				
-			}
+            if(memcmp((unsigned char *)usb_buffer_in,"TMR SEGA",8) == 0)
+            {
+                printf("\nMaster System/Mark3 cartridge detected !\n");
+                printf("Region : ");
+                if ( usb_buffer_in[15] >> 6 == 0x01 )
+                {
+                    printf("USA / EUR\n");
+                }
+                if ( usb_buffer_in[15] >> 4 == 0x03 )
+                {
+                    printf("Japan\n");
+                }
+                if ( usb_buffer_in[15] >> 4 == 0x03 )
+                {
+                    printf("Japan\n");
+                }
+                game_size = usb_buffer_in[15] & 0xF;
+                //printf("Game Size : %ld Ko \n",game_size);
+                if (game_size == 0x00)
+                {
+                    printf("Game Size : 256 Ko");
+                    game_size = 256*1024;
+                }
+                if (game_size == 0x01)
+                {
+                    printf("Game Size : 512 Ko");
+                    game_size = 512*1024;
+                }
+                if (game_size == 0x0c)
+                {
+                    printf("Game Size : 32 Ko");
+                    game_size = 32*1024;
+                }
+                if (game_size == 0x0e)
+                {
+                    printf("Game Size : 64 Ko");
+                    game_size = 64*1024;
+                }
+                if (game_size == 0x0f)
+                {
+                    printf("Game Size : 128 Ko");
+                    game_size = 128*1024;
+                }
 
-		else 
-			{
-				printf(" \nUnknown cartridge type\n(erased flash eprom or bad connection,...)\n");
-			}
-	}
+            }
+
+            else
+            {
+                printf(" \nUnknown cartridge type\n(erased flash eprom or bad connection,...)\n");
+            }
+    }
 
     printf("\n --- MENU ---\n");
     printf(" 1) Dump MD ROM\n");
@@ -606,7 +686,8 @@ unsigned long Hardwaresize;
     printf(" 7) Master System Mode\n");
     printf(" 8) Flash Memory Detection \n");
     printf(" 9) Debug Mode \n");
-	printf(" 10) Register Read \n");
+    printf(" 10) Register Read \n");
+    printf(" 12) Update Firmware \n");
 
     printf("\nYour choice: \n");
     scanf("%d", &choixMenu);
@@ -614,200 +695,132 @@ unsigned long Hardwaresize;
     switch(choixMenu)
     {
 
-	 case 11: // SSF2 Test
-
-			choixMenu=0;
-			game_size=2*1024*1024;		
-		    BufferROM = (unsigned char*)malloc(game_size);
-
-		address = 0xA130F5/2; // bank 2 
-	    usb_buffer_out[0] = MAPPER_SSF2;
-		usb_buffer_out[1]=address & 0xFF;
-        usb_buffer_out[2]=(address & 0xFF00)>>8;
-        usb_buffer_out[3]=(address & 0xFF0000)>>16;
-        usb_buffer_out[4]=0;
-		usb_buffer_out[5]=0x02;
-
-        libusb_bulk_transfer(handle, 0x01,usb_buffer_out, sizeof(usb_buffer_out), &numBytes, 60000);
-
-		address = 0;
-		i=0;
-
-		while ( i < 8192*2*2)
-{
-	    usb_buffer_out[0] = READ_MD;
-        usb_buffer_out[1]=address & 0xFF;
-        usb_buffer_out[2]=(address & 0xFF00)>>8;
-        usb_buffer_out[3]=(address & 0xFF0000)>>16;
-        usb_buffer_out[4]=0;
-
-        libusb_bulk_transfer(handle, 0x01,usb_buffer_out, sizeof(usb_buffer_out), &numBytes, 60000);
-		libusb_bulk_transfer(handle, 0x82,BufferROM+(i*64),64, &numBytes, 60000);
-		address+=32;
-		i++;
-  }
-		 printf("\nDump ROM completed !\n");
-        myfile = fopen("dump_ssf2.bin","wb");
-        fwrite(BufferROM, 1,game_size, myfile);
-        fclose(myfile);
-			break;
-
-	 case 10: // Register Read
-
-
-// Clean Buffer
-    for (i = 0; i < 64; i++)
-    {
-        usb_buffer_in[i]=0x00;
-        usb_buffer_out[i]=0x00;
-    }
-
-        choixMenu=0;
-		printf("Special Register Read Mode...\n");
-		/*printf("Please select register number : \n");
-		scanf("%d", &choixMenu);
-		usb_buffer_out[0] = 0xFA;
-		usb_buffer_out[1]= choixMenu;*/
-		usb_buffer_out[0] = 0xFA;
-		libusb_bulk_transfer(handle, 0x01,usb_buffer_out, sizeof(usb_buffer_out), &numBytes, 0); 
-    	libusb_bulk_transfer(handle, 0x82, usb_buffer_in, sizeof(usb_buffer_in), &numBytes, 0);
-		printf("CPLD register value is 0x%02X\n",usb_buffer_in[1]);
-		/*printf("\nDisplaying USB IN buffer\n\n");
-       for (i = 0; i < 64; i++)
-        {
-            printf("%02X ",usb_buffer_in[i]);
-    		j++;
-    		if (j==16){printf("\n");j=0;}
-        }  */
-
-		break;
-
     case 1: // DUMP MD ROM
         choixMenu=0;
-		//printf("La valeur de HardwareID est %d");
-      if ( Hardwaretype ==0 )
-     {
-        printf(" 1) Auto (from header)\n");
-        printf(" 2) Manual\n");
-        printf(" Your choice: ");
-        scanf("%d", &choixMenu);
-        if(choixMenu==2)
+        //printf("La valeur de HardwareID est %d");
+        if ( Hardwaretype ==0 )
         {
-            printf(" Enter number of KB to dump: ");
-            scanf("%d", &game_size);
+            printf(" 1) Auto (from header)\n");
+            printf(" 2) Manual\n");
+            printf(" Your choice: ");
+            scanf("%d", &choixMenu);
+            if(choixMenu==2)
+            {
+                printf(" Enter number of KB to dump: ");
+                scanf("%d", &game_size);
+            }
+
+            printf("Sending command Dump ROM \n");
+            printf("Dumping please wait ...\n");
+            address=0;
+            game_size *= 1024;
+            printf("\nRom Size : %ld Ko \n",game_size/1024);
+            BufferROM = (unsigned char*)malloc(game_size);
+            // Cleaning ROM Buffer
+            for (i=0; i<game_size; i++)
+            {
+                BufferROM[i]=0x00;
+            }
+
+            usb_buffer_out[0] = READ_MD;
+            usb_buffer_out[1]=address & 0xFF;
+            usb_buffer_out[2]=(address & 0xFF00)>>8;
+            usb_buffer_out[3]=(address & 0xFF0000)>>16;
+            usb_buffer_out[4]=1;
+
+            libusb_bulk_transfer(handle, 0x01,usb_buffer_out, sizeof(usb_buffer_out), &numBytes, 60000);
+            printf("ROM dump in progress...\n");
+            res = libusb_bulk_transfer(handle, 0x82,BufferROM,game_size, &numBytes, 60000);
+            if (res != 0)
+            {
+                printf("Error \n");
+                return 1;
+            }
+            printf("\nDump ROM completed !\n");
+            myfile = fopen("dump_smd.bin","wb");
+            fwrite(BufferROM, 1,game_size, myfile);
+            fclose(myfile);
         }
-  
-        printf("Sending command Dump ROM \n");
-        printf("Dumping please wait ...\n");
-        address=0;
-        game_size *= 1024;
-        printf("\nRom Size : %ld Ko \n",game_size/1024);
-        BufferROM = (unsigned char*)malloc(game_size);
-        // Cleaning ROM Buffer
-        for (i=0; i<game_size; i++)
+        if ( HardwareID != 0 && Hardwaretype == 2) // SSF2 Mapper + 5 MO ROM
         {
-            BufferROM[i]=0x00;
+            game_size=Hardwaresize*1024*1024;
+            BufferROM = (unsigned char*)malloc(game_size);
+            printf("Rom Size : %ld Ko \n",game_size/1024);
+            address=0;
+            for(i=0; i<1024*512*2*5; i++)
+            {
+                BufferROM[i]=0x00;
+            }
+
+            // Dump the first 4MB of the ROM
+
+            printf("Sending command Dump ROM \n");
+            printf("Dumping please wait ...\n");
+            address = 0;
+            i=0;
+
+            while ( i < 8192*2*4)
+            {
+                usb_buffer_out[0] = READ_MD;
+                usb_buffer_out[1]=address & 0xFF;
+                usb_buffer_out[2]=(address & 0xFF00)>>8;
+                usb_buffer_out[3]=(address & 0xFF0000)>>16;
+                usb_buffer_out[4]=0;
+
+                libusb_bulk_transfer(handle, 0x01,usb_buffer_out, sizeof(usb_buffer_out), &numBytes, 60000);
+                libusb_bulk_transfer(handle, 0x82,BufferROM+(i*64),64, &numBytes, 60000);
+                address+=32;
+                i++;
+            }
+            // Bankswitch Last MB
+
+            // Send 0x08 to the bank 6
+
+            address = 0xA130FD/2; // bank 6
+            usb_buffer_out[0] = MAPPER_SSF2;
+            usb_buffer_out[1]=address & 0xFF;
+            usb_buffer_out[2]=(address & 0xFF00)>>8;
+            usb_buffer_out[3]=(address & 0xFF0000)>>16;
+            usb_buffer_out[4]=0;
+            usb_buffer_out[5]=0x08;
+
+            libusb_bulk_transfer(handle, 0x01,usb_buffer_out, sizeof(usb_buffer_out), &numBytes, 60000);
+
+            // Send 0x09 to the bank 7
+
+            address = 0xA130FF/2; // bank 7
+            usb_buffer_out[0] = MAPPER_SSF2;
+            usb_buffer_out[1]=address & 0xFF;
+            usb_buffer_out[2]=(address & 0xFF00)>>8;
+            usb_buffer_out[3]=(address & 0xFF0000)>>16;
+            usb_buffer_out[4]=0;
+            usb_buffer_out[5]=0x09;
+
+            libusb_bulk_transfer(handle, 0x01,usb_buffer_out, sizeof(usb_buffer_out), &numBytes, 60000);
+
+            address = (3072*1024)/2;
+
+            // Dump last MB
+
+            while ( i < 8192*2*5)
+            {
+                usb_buffer_out[0] = READ_MD;
+                usb_buffer_out[1]=address & 0xFF;
+                usb_buffer_out[2]=(address & 0xFF00)>>8;
+                usb_buffer_out[3]=(address & 0xFF0000)>>16;
+                usb_buffer_out[4]=0;
+
+                libusb_bulk_transfer(handle, 0x01,usb_buffer_out, sizeof(usb_buffer_out), &numBytes, 60000);
+                libusb_bulk_transfer(handle, 0x82,BufferROM+(i*64),64, &numBytes, 60000);
+                address+=32;
+                i++;
+            }
+
+            printf("\nDump ROM completed !\n");
+            myfile = fopen("dump_smd.bin","wb");
+            fwrite(BufferROM,1,game_size, myfile);
+            fclose(myfile);
         }
-
-        usb_buffer_out[0] = READ_MD;
-        usb_buffer_out[1]=address & 0xFF;
-        usb_buffer_out[2]=(address & 0xFF00)>>8;
-        usb_buffer_out[3]=(address & 0xFF0000)>>16;
-        usb_buffer_out[4]=1;
-
-        libusb_bulk_transfer(handle, 0x01,usb_buffer_out, sizeof(usb_buffer_out), &numBytes, 60000);
-        printf("ROM dump in progress...\n");
-        res = libusb_bulk_transfer(handle, 0x82,BufferROM,game_size, &numBytes, 60000);
-        if (res != 0)
-        {
-            printf("Error \n");
-            return 1;
-        }
-        printf("\nDump ROM completed !\n");
-        myfile = fopen("dump_smd.bin","wb");
-        fwrite(BufferROM, 1,game_size, myfile);
-        fclose(myfile);
-   }
-	 if ( HardwareID != 0 && Hardwaretype == 2) // SSF2 Mapper + 5 MO ROM
-     {
-		game_size=Hardwaresize*1024*1024;		
-		BufferROM = (unsigned char*)malloc(game_size);
-		printf("Rom Size : %ld Ko \n",game_size/1024);
-		 address=0;
-		  for(i=0; i<1024*512*2*5; i++)
-        {
-            BufferROM[i]=0x00;
-        }
-
-		// Dump the first 4MB of the ROM
-		
-		printf("Sending command Dump ROM \n");
-        printf("Dumping please wait ...\n");
-		address = 0;
-		i=0;
-
-		while ( i < 8192*2*4)
-{
-	    usb_buffer_out[0] = READ_MD;
-        usb_buffer_out[1]=address & 0xFF;
-        usb_buffer_out[2]=(address & 0xFF00)>>8;
-        usb_buffer_out[3]=(address & 0xFF0000)>>16;
-        usb_buffer_out[4]=0;
-
-        libusb_bulk_transfer(handle, 0x01,usb_buffer_out, sizeof(usb_buffer_out), &numBytes, 60000);
-		libusb_bulk_transfer(handle, 0x82,BufferROM+(i*64),64, &numBytes, 60000);
-		address+=32;
-		i++;
-  }
-		// Bankswitch Last MB
-
-		// Send 0x08 to the bank 6 
-
-		address = 0xA130FD/2; // bank 6 
-	    usb_buffer_out[0] = MAPPER_SSF2;
-		usb_buffer_out[1]=address & 0xFF;
-        usb_buffer_out[2]=(address & 0xFF00)>>8;
-        usb_buffer_out[3]=(address & 0xFF0000)>>16;
-        usb_buffer_out[4]=0;
-		usb_buffer_out[5]=0x08;
-
-        libusb_bulk_transfer(handle, 0x01,usb_buffer_out, sizeof(usb_buffer_out), &numBytes, 60000);
-
-		// Send 0x09 to the bank 7 
-
-		address = 0xA130FF/2; // bank 7 
-	    usb_buffer_out[0] = MAPPER_SSF2;
-		usb_buffer_out[1]=address & 0xFF;
-        usb_buffer_out[2]=(address & 0xFF00)>>8;
-        usb_buffer_out[3]=(address & 0xFF0000)>>16;
-        usb_buffer_out[4]=0;
-		usb_buffer_out[5]=0x09;
-
-        libusb_bulk_transfer(handle, 0x01,usb_buffer_out, sizeof(usb_buffer_out), &numBytes, 60000);
-
-		address = (3072*1024)/2;
-
-		// Dump last MB
-		
-				while ( i < 8192*2*5)
-{
-	    usb_buffer_out[0] = READ_MD;
-        usb_buffer_out[1]=address & 0xFF;
-        usb_buffer_out[2]=(address & 0xFF00)>>8;
-        usb_buffer_out[3]=(address & 0xFF0000)>>16;
-        usb_buffer_out[4]=0;
-
-        libusb_bulk_transfer(handle, 0x01,usb_buffer_out, sizeof(usb_buffer_out), &numBytes, 60000);
-		libusb_bulk_transfer(handle, 0x82,BufferROM+(i*64),64, &numBytes, 60000);
-		address+=32;
-		i++;
-  }
-
-        printf("\nDump ROM completed !\n");
-        myfile = fopen("dump_smd.bin","wb");
-        fwrite(BufferROM,1,game_size, myfile);
-        fclose(myfile);			
-	}
         break;
 
     case 2: // DUMP MD Save
@@ -1053,52 +1066,52 @@ unsigned long Hardwaresize;
 
     case 7: // Master System Mode
 
-			choixMenu=0;
-        	printf(" 1) Auto (from header)\n");
-        	printf(" 2) Manual\n");
-        	printf(" Your choice: ");
-        	scanf("%d", &choixMenu);
-        	if(choixMenu==2)
-        	{
-            	printf(" Enter number of KB to dump: ");
-            	scanf("%d", &game_size);
-				game_size *= 1024;
-        	}
-        	printf("Sending command Dump ROM \n");
-        	printf("Dumping please wait ...\n");
-        	printf("\nRom Size : %ld Ko \n",game_size/1024);
-		    buffer_rom = (unsigned char*)malloc(game_size); // raw buffer
+        choixMenu=0;
+        printf(" 1) Auto (from header)\n");
+        printf(" 2) Manual\n");
+        printf(" Your choice: ");
+        scanf("%d", &choixMenu);
+        if(choixMenu==2)
+        {
+            printf(" Enter number of KB to dump: ");
+            scanf("%d", &game_size);
+            game_size *= 1024;
+        }
+        printf("Sending command Dump ROM \n");
+        printf("Dumping please wait ...\n");
+        printf("\nRom Size : %ld Ko \n",game_size/1024);
+        buffer_rom = (unsigned char*)malloc(game_size); // raw buffer
         // Cleaning ROM Buffer
         for (i=0; i<game_size; i++)
         {
             buffer_rom[i]=0x00;
         }
 
-		address = 0;
-		i=0;
-		j=0;
-		sms_bank=0;
+        address = 0;
+        i=0;
+        j=0;
+        sms_bank=0;
         while ( i< game_size)
         {
             usb_buffer_out[0] = READ_SMS;
-			usb_buffer_out[1] = address&0xFF ;
-        	usb_buffer_out[2] = (address&0xFF00)>>8;
-        	usb_buffer_out[3]=(address & 0xFF0000)>>16;
-       		usb_buffer_out[4] = 0; // Slow Mode		
-			usb_buffer_out[5] = sms_bank; // Bank	
+            usb_buffer_out[1] = address&0xFF ;
+            usb_buffer_out[2] = (address&0xFF00)>>8;
+            usb_buffer_out[3]=(address & 0xFF0000)>>16;
+            usb_buffer_out[4] = 0; // Slow Mode
+            usb_buffer_out[5] = sms_bank; // Bank
             libusb_bulk_transfer(handle, 0x01,usb_buffer_out, sizeof(usb_buffer_out), &numBytes, 60000);
             libusb_bulk_transfer(handle, 0x82,(buffer_rom+i),64, &numBytes, 60000);
             address +=64; //next adr
             i+=64;
-			j+=64;
+            j+=64;
             printf("\r ROM dump in progress: %ld%%", ((100 * i)/game_size));
             fflush(stdout);
         }
 
-			myfile = fopen("dump_sms.sms","wb");
-            fwrite(buffer_rom,1,game_size, myfile);
-            fclose(myfile);
-			break;
+        myfile = fopen("dump_sms.sms","wb");
+        fwrite(buffer_rom,1,game_size, myfile);
+        fclose(myfile);
+        break;
 
     case 8: // Vendor / ID Info
 
@@ -1223,6 +1236,139 @@ unsigned long Hardwaresize;
 
             }
         }
+
+    case 10: // Register Read
+
+
+// Clean Buffer
+        for (i = 0; i < 64; i++)
+        {
+            usb_buffer_in[i]=0x00;
+            usb_buffer_out[i]=0x00;
+        }
+
+        choixMenu=0;
+        printf("Special Register Read Mode...\n");
+        /*printf("Please select register number : \n");
+        scanf("%d", &choixMenu);
+        usb_buffer_out[0] = 0xFA;
+        usb_buffer_out[1]= choixMenu;*/
+        usb_buffer_out[0] = 0xFA;
+        libusb_bulk_transfer(handle, 0x01,usb_buffer_out, sizeof(usb_buffer_out), &numBytes, 0);
+        libusb_bulk_transfer(handle, 0x82, usb_buffer_in, sizeof(usb_buffer_in), &numBytes, 0);
+        printf("CPLD register value is 0x%02X\n",usb_buffer_in[1]);
+        /*printf("\nDisplaying USB IN buffer\n\n");
+        for (i = 0; i < 64; i++)
+        {
+            printf("%02X ",usb_buffer_in[i]);
+        	j++;
+        	if (j==16){printf("\n");j=0;}
+        }  */
+
+        break;
+
+    case 11: // SSF2 Test
+
+        choixMenu=0;
+        game_size=2*1024*1024;
+        BufferROM = (unsigned char*)malloc(game_size);
+
+        address = 0xA130F5/2; // bank 2
+        usb_buffer_out[0] = MAPPER_SSF2;
+        usb_buffer_out[1]=address & 0xFF;
+        usb_buffer_out[2]=(address & 0xFF00)>>8;
+        usb_buffer_out[3]=(address & 0xFF0000)>>16;
+        usb_buffer_out[4]=0;
+        usb_buffer_out[5]=0x02;
+
+        libusb_bulk_transfer(handle, 0x01,usb_buffer_out, sizeof(usb_buffer_out), &numBytes, 60000);
+
+        address = 0;
+        i=0;
+
+        while ( i < 8192*2*2)
+        {
+            usb_buffer_out[0] = READ_MD;
+            usb_buffer_out[1]=address & 0xFF;
+            usb_buffer_out[2]=(address & 0xFF00)>>8;
+            usb_buffer_out[3]=(address & 0xFF0000)>>16;
+            usb_buffer_out[4]=0;
+
+            libusb_bulk_transfer(handle, 0x01,usb_buffer_out, sizeof(usb_buffer_out), &numBytes, 60000);
+            libusb_bulk_transfer(handle, 0x82,BufferROM+(i*64),64, &numBytes, 60000);
+            address+=32;
+            i++;
+        }
+        printf("\nDump ROM completed !\n");
+        myfile = fopen("dump_ssf2.bin","wb");
+        fwrite(BufferROM, 1,game_size, myfile);
+        fclose(myfile);
+        break;
+
+   case 12: // Update Firmware
+
+		printf("---=Sega Dumper Update mode =---\n\n");
+		printf("Dumping current firmware ...\n");
+		game_size=128*1024;
+		BufferROM = (unsigned char*)malloc(game_size);
+
+	// Clean Buffer
+    for (i = 0; i < 64; i++)
+    {
+        usb_buffer_in[i]=0x00;
+        usb_buffer_out[i]=0x00;
+    }
+		//address = 0x2000; // STM32 App address is after bootloader
+		address = 0x0000;
+        i=0;
+
+        while ( i < game_size)
+        {
+            usb_buffer_out[0] = UPDATE_READ;
+            usb_buffer_out[1]=address & 0xFF;
+            usb_buffer_out[2]=(address & 0xFF00)>>8;
+            usb_buffer_out[3]=(address & 0xFF0000)>>16;
+            usb_buffer_out[4]=0;
+
+            libusb_bulk_transfer(handle, 0x01,usb_buffer_out, sizeof(usb_buffer_out), &numBytes, 60000);
+            libusb_bulk_transfer(handle, 0x82,BufferROM+i,64, &numBytes, 60000);
+            address=address+64;
+            i=i+64;
+        }
+       
+		printf("Current Firmware readed sucessfully !\n");
+
+		printf("Try to unlock STM32 Flash ...\n");
+		usb_buffer_out[0] = UPDATE_WRITE;
+		usb_buffer_out[1] = 0xCC;  // unlock flash flag
+		libusb_bulk_transfer(handle, 0x01,usb_buffer_out, sizeof(usb_buffer_out), &numBytes, 60000);
+        libusb_bulk_transfer(handle, 0x82,usb_buffer_in, sizeof(usb_buffer_in), &numBytes, 60000);
+		if ( usb_buffer_in[2] == 0xAA) { printf("STM32 Flash unlocked sucessfully ! \n");}
+		else { printf("Unlock flash error ! \n");break;}
+
+		printf("Erase STM32 Flash page ...\n");
+		usb_buffer_out[0] = UPDATE_WRITE;
+		usb_buffer_out[1] = 0xCC;  // unlock flash flag
+		usb_buffer_out[2] = 0x01;  // Erase page 9
+		libusb_bulk_transfer(handle, 0x01,usb_buffer_out, sizeof(usb_buffer_out), &numBytes, 60000);
+        libusb_bulk_transfer(handle, 0x82,usb_buffer_in, sizeof(usb_buffer_in), &numBytes, 60000);
+		i=0;
+		j=0;
+
+      /*  printf("\nDisplaying USB IN buffer\n\n");
+        for (i = 0; i < 64; i++)
+        {
+            printf("%02X ",usb_buffer_in[i]);
+        	j++;
+        	if (j==16){printf("\n");j=0;}
+        }  
+      */
+
+        myfile = fopen("dump_fw.bin","wb");
+        fwrite(BufferROM, 1,game_size, myfile);
+        fclose(myfile);
+
+		break;
 
 
 
