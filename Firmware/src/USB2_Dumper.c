@@ -1037,6 +1037,13 @@ static void usbdev_data_rx_cb(usbd_device *usbd_dev, uint8_t ep)
 		usbd_ep_write_packet(usbd_dev, 0x82,usb_buffer_OUT,64);
 		usb_buffer_OUT[6]=0x00;
 	}
+	
+	if (usb_buffer_IN[0] == READ_SMS)  						 // READ SMS
+   {
+		dump_running = 0;
+		readSMS();
+		usbd_ep_write_packet(usbd_dev, 0x82,usb_buffer_OUT,64);
+	}
 
 	if (usb_buffer_IN[0] == INFOS_ID)   // Chip Information
    {
