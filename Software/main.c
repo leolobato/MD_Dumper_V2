@@ -291,10 +291,10 @@ int main()
 // 3 = WaterMelon T-5740 Mapper Pier Solar
 //*****************************************************
 
-    unsigned char HardwareType;
+    unsigned char Hardwaretype=0;
 
 // Extra Hardware Lookup Table
-// Format = {chksum, HardwareType | CartrdigeSize}
+// Format = {chksum, Hardwaretype | CartrdigeSize}
 // chksum is located in ROM at 0x18E (0xC7)
 // Type and Size are combined to conserve memory
 
@@ -309,8 +309,7 @@ int main()
         0xCE25, 0x0205,  // Super Street Fighter 2 JAP
     };
     unsigned short Hardwaredata=0;
-    unsigned char Hardwaretype;
-    unsigned long Hardwaresize;
+    unsigned long Hardwaresize=0;
 
     // Main Program
 
